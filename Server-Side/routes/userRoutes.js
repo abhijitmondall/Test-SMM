@@ -5,6 +5,6 @@ const router = express.Router();
 // router.post("/signup", authController.signup);
 router.get("/login", authController.login);
 
-router.route("/callback").get(authController.callback);
+router.route("/callback").post(authController.callback);
 
 module.exports = router;
