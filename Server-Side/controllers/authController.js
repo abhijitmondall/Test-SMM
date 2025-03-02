@@ -95,7 +95,7 @@ exports.callback = catchAsync(async (req, res, next) => {
   );
 
   const { access_token, user_id } = tokenResponse.data;
-
+  console.log(access_token, tokenResponse);
   // Fetch Instagram User Profile
   const userResponse = await axios.get(
     `https://graph.instagram.com/${user_id}?fields=id,username&access_token=${access_token}`
@@ -114,7 +114,6 @@ exports.callback = catchAsync(async (req, res, next) => {
     user.accessToken = access_token;
     await user.save();
   }
-  console.log(access_token);
 
   // Generate JWT Token
   const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {

@@ -15,6 +15,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       unique: true,
     },
+    accessToken: String,
   },
   { timestamps: true }
 );

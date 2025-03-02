@@ -8,7 +8,7 @@ function Login() {
     e.preventDefault();
 
     try {
-      window.location.href = "http://localhost:3000/api/v1/users/login";
+      window.location.href = `${BASE_URL}/api/v1/users/login`;
 
       // navigate("/dashboard");
     } catch (err) {
