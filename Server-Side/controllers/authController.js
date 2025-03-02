@@ -70,7 +70,7 @@ const signToken = (userId) => {
 
 exports.login = catchAsync(async (req, res, next) => {
   const redirectUri = `${process.env.REDIRECT_URI}`;
-  const url = `https://www.instagram.com/oauth/authorize?client_id=${process.env.IG_APP_ID}&redirect_uri=${redirectUri}&scope=user_profile,instagram_manage_messages&response_type=code`;
+  const url = `https://www.instagram.com/oauth/authorize?client_id=${process.env.IG_APP_ID}&redirect_uri=${redirectUri}&scope=instagram_basic, instagram_content_publish&response_type=code`;
   res.redirect(url);
 });
 
