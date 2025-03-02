@@ -107,7 +107,6 @@ exports.callback = catchAsync(async (req, res, next) => {
     user = new User({
       instagramId: userResponse.data.id,
       username: userResponse.data.name,
-      email: userResponse.data.email,
       accessToken: access_token,
     });
     await user.save();
