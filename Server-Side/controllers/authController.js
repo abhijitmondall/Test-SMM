@@ -69,8 +69,8 @@ const signToken = (userId) => {
 // });
 
 exports.login = catchAsync(async (req, res, next) => {
-  const redirectUri = `${process.env.REDIRECT_URI}`;
-  const url = `https://www.instagram.com/oauth/authorize?client_id=${process.env.IG_APP_ID}&redirect_uri=${redirectUri}&scope=instagram_basic, instagram_content_publish&response_type=code`;
+  const redirectUri = process.env.REDIRECT_URI;
+  const url = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${process.env.IG_APP_ID}&redirect_uri=${redirectUri}&scope=instagram_basic,instagram_content_publish&response_type=code`;
   res.redirect(url);
 });
 
@@ -81,7 +81,7 @@ exports.callback = catchAsync(async (req, res, next) => {
 
   // Exchange Code for Access Token
   const tokenResponse = await axios.post(
-    "https://instagram.com/oauth/access_token",
+    "https://graph.facebook.com/v18.0/oauth/access_token",
     null,
     {
       params: {
@@ -95,10 +95,10 @@ exports.callback = catchAsync(async (req, res, next) => {
   );
 
   const { access_token, user_id } = tokenResponse.data;
-  console.log(access_token, tokenResponse);
-  // Fetch Instagram User Profile
+
+  // Fetch Instagram User Profile (Business Account)
   const userResponse = await axios.get(
-    `https://graph.instagram.com/${user_id}?fields=id,username&access_token=${access_token}`
+    `https://graph.facebook.com/${user_id}?fields=id,name,email&access_token=${access_token}`
   );
 
   let user = await User.findOne({ instagramId: userResponse.data.id });
@@ -106,7 +106,8 @@ exports.callback = catchAsync(async (req, res, next) => {
   if (!user) {
     user = new User({
       instagramId: userResponse.data.id,
-      username: userResponse.data.username,
+      username: userResponse.data.name,
+      email: userResponse.data.email,
       accessToken: access_token,
     });
     await user.save();
