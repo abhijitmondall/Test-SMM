@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 
-import { BASE_URL } from "../../helpers/settings";
+import { BASE_URL, BASE_URL_RE } from "../../helpers/settings";
 import { Link, useNavigate } from "react-router";
 import { useEffect } from "react";
 

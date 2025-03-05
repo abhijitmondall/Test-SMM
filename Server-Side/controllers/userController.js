@@ -38,52 +38,79 @@ exports.getPageInsights = catchAsync(async (req, res, next) => {
     return next(new AppError("Invalid 'since' or 'until' date format.", 400));
   }
 
-  // Construct the URL parameters dynamically
-  let url = `https://graph.facebook.com/v22.0/${pageId}/insights?metric=page_follows,page_post_engagements,post_impressions_unique,post_reactions_like_total&access_token=${access_token}`;
+  const sinceTimestamp = since
+    ? Math.floor(new Date(since).getTime() / 1000)
+    : undefined;
+  const untilTimestamp = until
+    ? Math.floor(new Date(until).getTime() / 1000)
+    : undefined;
 
-  if (since) {
-    url += `&since=${new Date(since).getTime() / 1000}`;
-  }
-
-  if (until) {
-    url += `&until=${new Date(until).getTime() / 1000}`;
-  }
+  // Get Page Insights
+  let pageUrl = `https://graph.facebook.com/v22.0/${pageId}/insights?metric=page_follows,page_post_engagements&access_token=${access_token}`;
 
   if (!since || !until) {
-    url += "&period=days_28";
+    pageUrl += "&period=days_28";
   }
 
-  const response = await axios.get(url);
+  if (sinceTimestamp) pageUrl += `&since=${sinceTimestamp}`;
+  if (untilTimestamp) pageUrl += `&until=${untilTimestamp}`;
 
-  if (!response.data || !response.data.data) {
-    return next(new AppError("No insights data found!", 404));
+  const pageResponse = await axios.get(pageUrl);
+  if (!pageResponse.data || !pageResponse.data.data) {
+    return next(new AppError("No page insights data found!", 404));
   }
+  const pageInsights = pageResponse.data.data;
 
-  const insightsData = response?.data.data;
-
-  // Extract insights
-  const totalFollowers = extractMetricValue(insightsData, "page_follows");
+  const totalFollowers = extractMetricValue(pageInsights, "page_follows");
   const totalEngagement = extractMetricValue(
-    insightsData,
+    pageInsights,
     "page_post_engagements"
   );
-  const totalImpressions = extractMetricValue(
-    insightsData,
-    "post_impressions_unique"
-  );
-  const totalReactions = extractMetricValue(
-    insightsData,
-    "page_actions_post_reactions"
-  );
 
-  // Send response
+  // Get Posts Insights
+  let postsUrl = `https://graph.facebook.com/v22.0/${pageId}/posts?fields=id,created_time&access_token=${access_token}`;
+
+  const postsResponse = await axios.get(postsUrl);
+  const posts = postsResponse.data.data;
+
+  // Fetch insights for each post and sum up reactions & impressions
+  let totalPostReactions = 0;
+  let totalPostImpressions = 0;
+
+  const insightsPromises = posts.map(async (post) => {
+    let insightsUrl = `https://graph.facebook.com/v22.0/${post.id}/insights?metric=post_reactions_like_total,post_impressions&access_token=${access_token}`;
+
+    if (sinceTimestamp) insightsUrl += `&since=${sinceTimestamp}`;
+    if (untilTimestamp) insightsUrl += `&until=${untilTimestamp}`;
+
+    const insightsResponse = await axios.get(insightsUrl);
+
+    const insightsData = insightsResponse.data.data.reduce((acc, metric) => {
+      acc[metric.name] = metric.values.length ? metric.values[0].value : 0;
+      return acc;
+    }, {});
+
+    // Total reactions & impressions
+    totalPostReactions += insightsData.post_reactions_like_total || 0;
+    totalPostImpressions += insightsData.post_impressions || 0;
+
+    return {
+      postId: post.id,
+      createdTime: post.created_time,
+      ...insightsData,
+    };
+  });
+
+  const postInsights = await Promise.all(insightsPromises);
+
   res.status(200).json({
     status: "success",
     data: {
       totalFollowers,
       totalEngagement,
-      totalImpressions,
-      totalReactions,
+      totalPostImpressions,
+      totalPostReactions,
+      postInsights,
     },
   });
 });

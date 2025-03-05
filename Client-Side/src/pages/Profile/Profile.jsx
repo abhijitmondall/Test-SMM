@@ -12,7 +12,6 @@ function Profile() {
   const [refetch, setRefetch] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  console.log(since, until);
   const token = localStorage.getItem("token");
 
   const handleAnalytics = (e) => {
@@ -24,7 +23,7 @@ function Profile() {
     (async () => {
       setLoading(true);
       try {
-        const res = await fetch(`http://localhost:3000/api/v1/users/me`, {
+        const res = await fetch(`${BASE_URL}/api/v1/users/me`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -43,26 +42,24 @@ function Profile() {
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        const res = await fetch(
-          `http://localhost:3000/api/v1/users/pageInsights`,
-          {
-            method: "POST",
+        const res = await fetch(`${BASE_URL}/api/v1/users/pageInsights`, {
+          method: "POST",
 
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-type": "application/json",
-            },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-type": "application/json",
+          },
 
-            body: JSON.stringify({
-              pageId: selectedPage?.id,
-              since,
-              until,
-              access_token: selectedPage?.access_token,
-            }),
-          }
-        );
+          body: JSON.stringify({
+            pageId: selectedPage?.id,
+            since,
+            until,
+            access_token: selectedPage?.access_token,
+          }),
+        });
 
         const data = await res.json();
+        console.log(data.data);
 
         setAnalytics(data.data);
       } catch (error) {
@@ -205,7 +202,7 @@ function Profile() {
                 Impressions
               </h3>
               <p className="text-4xl font-bold text-yellow-400">
-                {analytics?.totalImpressions}
+                {analytics?.totalPostImpressions}
               </p>
             </motion.div>
 
@@ -214,9 +211,11 @@ function Profile() {
               className="p-6 bg-gray-700 rounded-lg shadow-lg hover:shadow-xl transition"
               whileHover={{ scale: 1.05 }}
             >
-              <h3 className="text-xl font-semibold text-gray-300">Reactions</h3>
+              <h3 className="text-xl font-semibold text-gray-300">
+                Total Likes
+              </h3>
               <p className="text-4xl font-bold text-red-400">
-                {analytics?.totalReactions}
+                {analytics?.totalPostReactions}
               </p>
             </motion.div>
           </motion.div>
