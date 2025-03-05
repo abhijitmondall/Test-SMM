@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const { promisify } = require("util");
 const jwt = require("jsonwebtoken");
+const axios = require("axios");
 
 const catchAsync = require("../utils/catchAsync");
 
@@ -13,100 +14,96 @@ const signToken = (userId) => {
   });
 };
 
-// exports.jwt = catchAsync(async (req, res, next) => {
-//   const { email } = req.params;
+exports.protected = catchAsync(async (req, res, next) => {
+  // 1. Getting token and check if it's exists
+  let token;
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    token = req.headers.authorization.split(" ")[1];
+  }
 
-//   // 2. Check if user exists
-//   const user = await User.findOne({ email });
+  if (!token) {
+    return next(
+      new AppError("You are not logged in! Please log in to get access!", 401)
+    );
+  }
 
-//   if (!email || !user) {
-//     return next(
-//       new AppError(
-//         "You don not have permission to perform this action!(Invalid Email/User)",
-//         403
-//       )
-//     );
-//   }
+  console.log(token);
 
-//   // 3. If everything is ok, send token to the client
-//   const token = signToken(user.email);
-//   res.status(200).json({
-//     status: "success",
-//     token,
-//   });
-// });
+  // 2. Verify the token
+  const { userId } = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
-// exports.protected = catchAsync(async (req, res, next) => {
-//   // 1. Getting token and check if it's exists
-//   let token;
-//   if (
-//     req.headers.authorization &&
-//     req.headers.authorization.startsWith("Bearer")
-//   ) {
-//     token = req.headers.authorization.split(" ")[1];
-//   }
+  // 3. Check if user still exists
+  const currentUser = await User.findOne({ fbId: userId });
+  if (!currentUser) {
+    return next(
+      new AppError("The User belonging to this token no longer exists!", 401)
+    );
+  }
 
-//   if (!token) {
-//     return next(
-//       new AppError("You are not logged in! Please log in to get access!", 401)
-//     );
-//   }
-
-//   // 2. Verify the token
-//   const { email } = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
-//   console.log(email);
-//   // 3. Check if user still exists
-//   const currentUser = await User.findOne({ email });
-//   if (!currentUser) {
-//     return next(
-//       new AppError("The User belonging to this token no longer exists!", 401)
-//     );
-//   }
-
-//   // 4 Grand Access to protected route
-//   req.user = currentUser;
-//   next();
-// });
+  // 4 Grand Access to protected route
+  req.user = currentUser;
+  next();
+});
 
 exports.login = catchAsync(async (req, res, next) => {
   const redirectUri = process.env.REDIRECT_URI;
-  const url = `https://www.instagram.com/oauth/authorize?client_id=${process.env.IG_APP_ID}&redirect_uri=${redirectUri}&scope=instagram_basic,instagram_content_publish&response_type=code`;
+  const clientId = process.env.APP_ID;
+  const scope =
+    "read_insights,pages_show_list, public_profile, email, pages_read_engagement, pages_read_user_content,,pages_manage_engagement,instagram_content_publish";
+  const url = `https://www.facebook.com/dialog/oauth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
   res.redirect(url);
 });
 
 exports.callback = catchAsync(async (req, res, next) => {
-  const { code } = req.query;
+  const { code, error } = req.query;
 
+  if (error) return next(new AppError(`Instagram Error: ${error}`, 400));
   if (!code) return next(new AppError("No Code Provided!", 400));
 
-  // Exchange Code for Access Token
   const tokenResponse = await axios.post(
-    "https://api.instagram.com/oauth/access_token",
-    null,
+    "https://graph.facebook.com/v22.0/oauth/access_token",
+    {
+      client_id: process.env.APP_ID,
+      client_secret: process.env.APP_SECRET,
+      grant_type: "authorization_code",
+      redirect_uri: process.env.REDIRECT_URI,
+      code,
+    }
+  );
+
+  const { access_token } = tokenResponse.data;
+
+  // Corrected profile URL
+  const userResponse = await axios.get(
+    `https://graph.facebook.com/v22.0/me?fields=id,name,picture&access_token=${access_token}`
+  );
+
+  // console.log(userResponse.data);
+
+  // Make a GET request to fetch pages the user manages
+  const response = await axios.get(
+    "https://graph.facebook.com/v22.0/me/accounts",
     {
       params: {
-        client_id: process.env.IG_APP_ID,
-        client_secret: process.env.IG_APP_SECRET,
-        grant_type: "authorization_code",
-        redirect_uri: process.env.REDIRECT_URI,
-        code,
+        access_token,
       },
     }
   );
 
-  const { access_token, user_id } = tokenResponse.data;
+  // console.log(response.data.data);
 
-  // Fetch Instagram User Profile (Business Account)
-  const userResponse = await axios.get(
-    `https://graph.instagram.com/v22.0/me/${user_id}?fields=id,name,email&access_token=${access_token}`
-  );
-
-  let user = await User.findOne({ instagramId: userResponse.data.id });
+  // Handle the response and log the page information
+  let user = await User.findOne({ fbId: userResponse.data.id });
 
   if (!user) {
     user = new User({
-      instagramId: userResponse.data.id,
-      username: userResponse.data.name,
+      fbId: userResponse.data.id,
+      fullName: userResponse.data.name,
+      photo: userResponse.data.picture.data.url,
+      pages: response.data.data,
       accessToken: access_token,
     });
     await user.save();
@@ -116,22 +113,7 @@ exports.callback = catchAsync(async (req, res, next) => {
   }
 
   // Generate JWT Token
-  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
+  const token = signToken(userResponse.data.id);
 
-  res.redirect(`http://localhost:5173/dashboard?token=${token}`);
+  res.redirect(`https://test-smm.netlify.app/?token=${token}`);
 });
-
-// exports.restrictTo = (...roles) => {
-//   return (req, res, next) => {
-//     // Here Roles will be an Array
-//     if (!roles.includes(req.user.role)) {
-//       return next(
-//         new AppError("You don not have permission to perform this action!", 403)
-//       );
-//     }
-
-//     next();
-//   };
-// };

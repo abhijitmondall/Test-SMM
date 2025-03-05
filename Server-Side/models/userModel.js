@@ -4,17 +4,20 @@ const userSchema = new mongoose.Schema(
   {
     username: {
       type: String,
-      required: true,
-      unique: true,
+      // required: true,
     },
     fullName: {
       type: String,
-      required: true,
     },
-    instagramId: {
+    photo: String,
+    fbId: {
       type: String,
       unique: true,
     },
+    pages: {
+      type: Array,
+    },
+
     accessToken: String,
   },
   { timestamps: true }
