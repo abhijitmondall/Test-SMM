@@ -52,7 +52,7 @@ function Login() {
             onClick={handleLogin}
             className="px-6 py-3 bg-white text-blue-600 font-semibold text-lg rounded-lg shadow-lg hover:bg-gray-200 transition cursor-pointer"
           >
-            Login with Instagram
+            Login with Facebook
           </button>
         </motion.div>
       </div>
