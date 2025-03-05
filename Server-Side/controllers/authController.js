@@ -115,5 +115,5 @@ exports.callback = catchAsync(async (req, res, next) => {
   // Generate JWT Token
   const token = signToken(userResponse.data.id);
 
-  res.redirect(`http://localhost:5173/?token=${token}`);
+  res.redirect(`https://test-smm.netlify.app/?token=${token}`);
 });
