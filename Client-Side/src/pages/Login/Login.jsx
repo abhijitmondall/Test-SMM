@@ -40,7 +40,7 @@ function Login() {
           Welcome to InstaConnect
         </motion.h1>
         <p className="mt-4 text-lg md:text-xl text-center">
-          Securely connect with Instagram and manage your conversations easily.
+          Securely connect with Facebook and manage your conversations easily.
         </p>
         <motion.div
           className="mt-6"
